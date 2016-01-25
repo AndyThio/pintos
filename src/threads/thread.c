@@ -346,8 +346,9 @@ thread_set_priority (int new_priority)
   thread_current ()->priority = new_priority;
 }
 
-struct thread*
-greater_priority(const struct *thread a, const struc *thread b){
+/* Returns the thread with the higher priority, including donated priority */
+struct thread *
+greater_priority (const struct thread *a, const struct thread *b){
     if(thread_get_priority_find(a) > thread_get_priority_find(b)){
         return a;
     }
@@ -355,16 +356,23 @@ greater_priority(const struct *thread a, const struc *thread b){
         return b;
     }
 }
-// TODO: If priorty of donated < priority of base than break the chain
+
 /* Recurses to return the donated priority of a function
     Or it's base priority if none is donated to it */
 int
-thread_get_priority_find(const struct thread *base_thread){
-    if(base_thread.donated_priority == NULL){
-        return base_thread.priority;
+thread_get_priority_find(struct thread *base_thread){
+    if(base_thread->donated_priority == NULL){
+        return base_thread->priority;
     }
     else{
-        return thread_get_priority_find(&base_thread);
+        /* Searches makes sure that the priority from the base is lower than 
+            that of the donated priority */
+        int donated_thread = thread_get_priority_find(&base_thread);
+        if(donated_thread < base_thread -> priority){
+            base_thread -> donated_priority = NULL;
+            return base_thread -> priority;
+        }
+        return donated_thread;
     }
 }
 
@@ -373,7 +381,7 @@ int
 thread_get_priority (void) 
 {
     if(thread_current()->donated_priority != NULL){
-        return thread_get_priority_find(&thread_current());
+        return thread_get_priority_find(thread_current());
     }
   return thread_current ()->priority;
 }
