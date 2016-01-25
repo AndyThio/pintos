@@ -141,11 +141,10 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-// TODO: Adjust return value to tid_t or pointer to the thread
 /* Helper function to compare priorities */
-struct thread *greater_priority(const struct thread *a, const struct thread *b);
+bool greater_priority(const struct thread *a, const struct thread *b);
 /* Helper function to find the maximum prioroity of a list of threads */
-struct thread max_priority_list(const struct list *qery);
+struct list_elem *max_priority_list(const struct list *qery);
 
 
 

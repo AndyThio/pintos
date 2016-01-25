@@ -346,15 +346,11 @@ thread_set_priority (int new_priority)
   thread_current ()->priority = new_priority;
 }
 
-/* Returns the thread with the higher priority, including donated priority */
-struct thread *
+/* Returns true if the thread with the higher priority is a,
+    and includes donated priority */
+bool
 greater_priority (const struct thread *a, const struct thread *b){
-    if(thread_get_priority_find(a) > thread_get_priority_find(b)){
-        return a;
-    }
-    else{
-        return b;
-    }
+    return thread_get_priority_find(a) > thread_get_priority_find(b);
 }
 
 /* Recurses to return the donated priority of a function
@@ -518,6 +514,22 @@ alloc_frame (struct thread *t, size_t size)
   return t->stack;
 }
 
+/* Returns list_elem pointer to the list_elem with the highest priority,
+    including donated priority. Note: This is a modified list_max in list.h */
+struct list_elem *
+max_priority_list(const struct list *qery){
+    struct list_elem *max = list_begin(qery);
+    if(max != list_end(qery)){
+        struct list_elem *e;
+        for(e = list_next(max); e != list_end(qery); e = list_next(e)){
+            if(greater_priority(e,max)){
+                max = e;
+            }
+        }
+    }
+    return max;
+}
+
 /* Chooses and returns the next thread to be scheduled.  Should
    return a thread from the run queue, unless the run queue is
    empty.  (If the running thread can continue running, then it
@@ -529,7 +541,8 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    return list_entry (list_remove(max_priority_list(&ready_list)),
+        struct thread, elem);
 }
 
 /* Completes a thread switch by activating the new thread's page
