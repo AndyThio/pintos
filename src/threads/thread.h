@@ -89,6 +89,8 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
+    thread *donated_priority            /* Points to the thread from which 
+                                           the donated priority is coming from*/
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -130,6 +132,7 @@ void thread_yield (void);
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
+int thread_get_priority_find(struct thread *base_thread);
 int thread_get_priority (void);
 void thread_set_priority (int);
 
@@ -137,5 +140,14 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+// TODO: Adjust return value to tid_t or pointer to the thread
+/* Helper function to compare priorities */
+struct thread greater_priority(const struct thread a, const struct thread b);
+/* Helper function to find the maximum prioroity of a list of threads */
+struct thread max_priority_list(const struct list *qery);
+
+
+
 
 #endif /* threads/thread.h */
