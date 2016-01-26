@@ -346,6 +346,12 @@ thread_set_priority (int new_priority)
   thread_current ()->priority = new_priority;
 }
 
+/* Sets the recipient's donated priority to the current thread's priority */
+void
+thread_set_donated (struct thread *recipient){
+    recipient->donated_priority = thread_current();
+}
+
 /* Returns true if the thread with the higher priority is a,
     and includes donated priority */
 bool
