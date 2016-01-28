@@ -102,6 +102,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+    int64_t deadline;                   /* Detects wait length. */
   };
 
 /* If false (default), use round-robin scheduler.

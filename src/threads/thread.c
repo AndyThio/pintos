@@ -418,7 +418,7 @@ thread_get_recent_cpu (void)
   /* Not yet implemented. */
   return 0;
 }
-
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
@@ -520,6 +520,7 @@ alloc_frame (struct thread *t, size_t size)
   return t->stack;
 }
 
+// TODO: Remove this, will replace with ordered list
 /* Returns list_elem pointer to the list_elem with the highest priority,
     including donated priority. Note: This is a modified list_max in list.h */
 struct list_elem *
@@ -534,6 +535,20 @@ max_priority_list(const struct list *qery){
         }
     }
     return max;
+}
+
+bool
+compare_priority (const struct list_elem *a, const struct list_elem *b,
+                        void *aux non)
+{
+    struct thread thread_a = list_entry(a, struct thread, elem);
+    struct thread thread_a = list_entry(b, struct thread, elem);
+    if(greater_priority(thread_a, thread_b)){
+        return true;
+    }
+    else{
+        return false;
+    }
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
