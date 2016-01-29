@@ -344,12 +344,14 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  reorder_readylist();
 }
 
 /* Sets the recipient's donated priority to the current thread's priority */
 void
 thread_set_donated (struct thread *recipient){
     recipient->donated_priority = thread_current();
+    reorder_readylist();
 }
 
 /* Returns true if the thread with the higher priority is a,
@@ -537,18 +539,18 @@ max_priority_list(const struct list *qery){
     return max;
 }
 
+/* Compares the priority of two list_elems */
 bool
 compare_priority (const struct list_elem *a, const struct list_elem *b,
-                        void *aux non)
+                        void *aux UNUSED)
 {
-    struct thread thread_a = list_entry(a, struct thread, elem);
-    struct thread thread_a = list_entry(b, struct thread, elem);
-    if(greater_priority(thread_a, thread_b)){
+    struct thread *thread_a = list_entry(a, struct thread, elem);
+    struct thread *thread_b = list_entry(b, struct thread, elem);
+    if(greater_priority(&thread_a, &thread_b)){
         return true;
     }
-    else{
-        return false;
-    }
+    return false;
+    
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -562,8 +564,7 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_remove(max_priority_list(&ready_list)),
-        struct thread, elem);
+    return list_entry (list_pop_front(&ready_list), struct thread, elem);
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -632,7 +633,8 @@ schedule (void)
 
   if (cur != next)
     prev = switch_threads (cur, next);
-  thread_schedule_tail (prev);
+  list_insert_ordered(&ready_list, &prev->elem,
+                            (list_less_func *) &compare_priority, NULL);
 }
 
 /* Returns a tid to use for a new thread. */
@@ -652,3 +654,16 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+void
+reorder_readylist(void){
+    if(list_empty(&ready_list)){
+        return;
+    }
+    list_sort(&ready_list, (list_less_func *) &compare_priority, NULL);
+    if(thread_current()->priority < list_entry(list_front(&ready_list),
+                                                    struct thread, elem)){
+        thread_yield();
+        return;
+    }
+}

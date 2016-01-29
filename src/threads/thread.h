@@ -147,6 +147,10 @@ int thread_get_load_avg (void);
 bool greater_priority(const struct thread *a, const struct thread *b);
 /* Helper function to find the maximum prioroity of a list of threads */
 struct list_elem *max_priority_list(const struct list *qery);
+bool compare_priority(const struct list_elem *a, const struct list_elem *b,
+                                    void *aux UNUSED);
+/* reorders readylist and checks if thread should be yielded */
+void reorder_readylist(void);
 
 
 
