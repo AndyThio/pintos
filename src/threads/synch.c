@@ -68,18 +68,18 @@ sema_down (struct semaphore *sema)
 
   old_level = intr_disable ();
   if(sema->value == 0){
-  //    thread_set_donated(list_entry (list_begin(&sema->held_by_thread),
-  //      struct thread, elem));
+      thread_set_donated(list_entry (list_begin(&sema->held_by_thread),
+        struct thread, elem));
   }
   while (sema->value == 0)
     {
-   /*   list_insert_ordered (&sema->waiters, &thread_current ()->elem,
+     list_insert_ordered (&sema->waiters, &thread_current ()->elem,
                                 (list_less_func *) &compare_priority, NULL);
-   */
+
       thread_block ();
     }
   sema->value--;
-  //list_push_back (&sema->held_by_thread, &thread_current()->elem);
+  list_push_back (&sema->held_by_thread, &thread_current()->elem);
   intr_set_level (old_level);
 }
 
@@ -101,7 +101,7 @@ sema_try_down (struct semaphore *sema)
     {
       sema->value--;
       success = true;
-    //  list_push_back (&sema->held_by_thread, &thread_current()->elem);
+      list_push_back (&sema->held_by_thread, &thread_current()->elem);
     }
   else
     success = false;
@@ -126,7 +126,7 @@ sema_up (struct semaphore *sema)
     thread_unblock (list_entry (list_pop_front(&sema->waiters),
                                 struct thread, elem));
   }
-  /*if(!list_empty (&sema->held_by_thread)){
+  if(!list_empty (&sema->held_by_thread)){
       struct list_elem *e = list_begin(&sema->held_by_thread);
       for(e = list_next(e); list_entry(e,struct thread, elem) == thread_current()
                         && e != list_end(&sema->held_by_thread);e = list_next(e));
@@ -140,7 +140,6 @@ sema_up (struct semaphore *sema)
           list_remove(e);
       }
   }
-  */
   sema->value++;
   intr_set_level (old_level);
 }

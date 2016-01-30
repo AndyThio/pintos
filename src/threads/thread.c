@@ -347,13 +347,11 @@ thread_set_priority (int new_priority)
   reorder_readylist();
 }
 /* Sets the recipient's donated priority to the current thread's priority */
-/*
 void
 thread_set_donated (struct thread *recipient){
     recipient->donated_priority = thread_current();
     reorder_readylist();
 }
-*/
 /* Returns true if the thread with the higher priority is a,
     and includes donated priority */
 bool
@@ -505,6 +503,7 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->donated_priority = NULL;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 }
