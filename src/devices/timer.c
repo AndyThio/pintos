@@ -84,17 +84,43 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
+//check if sleeping thread should wake. 
+static void
+timer_nosleep (struct thread *thready, void *aux){
+	if (thready -> status == THREAD_BLOCKED){
+		if (thready -> deadline == timer_ticks()) thread_unblock(thready);
+	}
+}
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
+  int64_t start = timer_ticks() + ticks ;
+
+  thread_current ()->deadline = start;
 
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+
+  enum intr_level old_state; 
+  old_state = intr_disable (); 
+
+//Do stuff that is sensative to interrupts here
+
+// while (timer_elapsed (start) < ticks) 
+//    thread_yield ();
+
+  thread_block();
+
+  intr_set_level(old_state);
+
+// FIX Rather than use thread_yeild, try using Running Ready Wait lists
+// put task on wait given how long they need to wait for
+// (thread_block)
+// push.sleep_list(timer_ticks)
+
 }
+
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
    turned on. */
@@ -165,14 +191,20 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+
+  thread_foreach(timer_nosleep, 0);
 }
+
+//FIX make a check here since this is when time is moving
+//(Doing it inside the function is retarded since there's
+// no way to tell how long the snooze has lasted)
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */
