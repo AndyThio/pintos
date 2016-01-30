@@ -383,6 +383,7 @@ void
 thread_original_priority(){
     thread_current() -> priority = thread_current()-> orgin_priority;
     thread_current() -> donee = false;
+    while(!list_empty(&thread_current()->donors)
 }
 
 /* Returns the current thread's priority. */
