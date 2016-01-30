@@ -343,8 +343,25 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
-  thread_current ()->priority = new_priority;
+  if(new_priority > thread_current()->priority && donee)
+    thread_current ()->priority = new_priority;
+  else if(!donee){
+    thread_current ()->priority = new_priority;
+  }
+  thread_current ()->orgin_priority = new_priority;
   reorder_readylist();
+}
+/* Sets DONATE_TO priority to current thread's priority */
+void
+thread_set_donated (struct thread* donate_to){
+    donate_to->priority = thread_current()-> priority;
+    donate_to->donee = true;
+}
+
+void
+thread_original_priority(){
+    thread_current() -> priority = thread_current()-> orgin_priority;
+    thread_current() -> donee = false;
 }
 
 /* Returns the current thread's priority. */
@@ -469,6 +486,8 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->orgin_priority = priority;
+  t->donee = false;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 }
