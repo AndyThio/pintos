@@ -344,33 +344,40 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
-  if(new_priority > thread_current()->priority
-            && thread_current()-> donee)
-    thread_current ()->priority = new_priority;
-  else if(!(thread_current()->donee)){
-    thread_current ()->priority = new_priority;
-  }
+  thread_current ()->priority = new_priority;
   thread_current ()->orgin_priority = new_priority;
   reorder_readylist();
 }
 /* Sets DONATE_TO priority to current thread's priority */
 void
 thread_set_donated (struct thread* donate_to){
-    donate_to->priority = thread_current()-> priority;
-    donate_to->donee = true;
+    list_insert_ordered(&donate_to->donor,&thread_current(),
+        (list_less_func *) &compare_priority, NULL);
+    reorder_readylist();
 }
 
 void
 thread_original_priority(){
     thread_current() -> priority = thread_current()-> orgin_priority;
-    thread_current() -> donee = false;
+    while(!list_empty(&thread_current()->donor)){
+        list_pop_front(&thread_currnet()->donor);
+    }
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void)
 {
+  if(!list_emtpy(&thread_current()->donor)){
+      list_sort(&thread_current()->donor,
+                 (list_less_func *) &compare_priority, NULL);
+      struct thread *a=list_entry(list_front(&thread_current()->donor),
+          struct thread, elem);
+      if(thread_current()->priority < a->priority){
+          return  a->priority;
+  }
   return thread_current ()->priority;
+
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -489,8 +496,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->orgin_priority = priority;
-  t->donee = false;
-  t->donor = NULL;
+  list_init(&donor);
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 }
@@ -618,7 +624,7 @@ compare_priority (const struct list_elem *a, const struct list_elem *b,
 {
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
-    if(thread_a->priority > thread_b->priority){
+    if(thread_get_priority(&thread_a) > thread_get_priority(thread_b)){
         return true;
     }
     return false;
@@ -631,8 +637,8 @@ reorder_readylist(void){
         return;
     }
     list_sort(&ready_list, (list_less_func *) &compare_priority, NULL);
-    if(thread_current()->priority < list_entry(list_front(&ready_list),
-                                                    struct thread, elem)){
+    if(thread_get_priority(&thread_current()) < thread_get_priority(
+            &list_entry(list_front(&ready_list), struct thread, elem))){
         thread_yield();
         return;
     }
