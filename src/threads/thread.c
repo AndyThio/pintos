@@ -209,6 +209,7 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  reorder_readylist();
   return tid;
 }
 
@@ -343,9 +344,10 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
-  if(new_priority > thread_current()->priority && donee)
+  if(new_priority > thread_current()->priority
+            && thread_current()-> donee)
     thread_current ()->priority = new_priority;
-  else if(!donee){
+  else if(!(thread_current()->donee)){
     thread_current ()->priority = new_priority;
   }
   thread_current ()->orgin_priority = new_priority;
@@ -488,6 +490,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->orgin_priority = priority;
   t->donee = false;
+  t->donor = NULL;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 }
