@@ -356,8 +356,27 @@ thread_set_priority (int new_priority)
 /* Sets DONATE_TO priority to current thread's priority */
 void
 thread_set_donated (struct thread* donate_to){
-    donate_to->priority = thread_current()-> priority;
+  ASSERT(!intr_context());
+
+   enum intr_level old_level;
+   old_level = intr_disable();
+
+  if(donate_to->priority < thread_current()->priority){
+    donate_to->priority = thread_current()->priority;
     donate_to->donee = true;
+  }
+    list_push_front(&thread_current()->donors, &donate_to->elem);
+    if(list_empty(&donate_to->donors)){
+        return;
+    }
+    struct list_elem *e;
+
+    for(e = list_begin(&donate_to->donors); e!= list_end(&donate_to->donors);
+                                    e = list_next(e)){
+        thread_set_donated(list_entry(e, struct thread, elem));
+    }
+
+    intr_set_level(old_level);
 }
 
 void
@@ -490,7 +509,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->orgin_priority = priority;
   t->donee = false;
-  t->donor = NULL;
+  list_init(&t->donors);
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 }

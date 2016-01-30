@@ -90,7 +90,7 @@ struct thread
     int priority;                       /* Priority. */
     int orgin_priority;                 /* Original Priority (for donatations)*/
     bool donee;                         /* True if this has a donation */
-    struct thread* donor;               /* Pointer to thread priority donor */
+    struct list donors;                 /* Pointer to thread priority donor */
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
