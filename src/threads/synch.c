@@ -116,7 +116,6 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
 
-  thread_original_priority();
   if (!list_empty (&sema->waiters)){
     list_sort(&sema->waiters, (list_less_func *) &compare_priority,
                                                             NULL);
@@ -124,7 +123,6 @@ sema_up (struct semaphore *sema)
                                 struct thread, elem));
   }
   sema->value++;
-  reorder_readylist();
   intr_set_level (old_level);
 }
 
@@ -248,6 +246,8 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
+  thread_original_priority();
+  reorder_readylist();
 }
 
 /* Returns true if the current thread holds LOCK, false

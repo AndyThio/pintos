@@ -91,6 +91,7 @@ struct thread
     int priority;                       /* Priority. */
     int orgin_priority;                 /* Original Priority (for donatations)*/
     struct list donor;                  /* Pointer to thread priority donor */
+    struct list_elem donorelem;         /* List element for donor list */
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -145,6 +146,8 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 bool compare_priority(const struct list_elem *a, const struct list_elem *b,
+                                        void *aux UNUSED);
+bool cmp_priority_donor(const struct list_elem *a, const struct list_elem *b,
                                         void *aux UNUSED);
 void reorder_readylist(void);
 

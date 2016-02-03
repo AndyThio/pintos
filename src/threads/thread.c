@@ -351,9 +351,7 @@ thread_set_priority (int new_priority)
 /* Sets DONATE_TO priority to current thread's priority */
 void
 thread_set_donated (struct thread* donate_to){
-    list_insert_ordered(&donate_to->donor,&thread_current()->elem,
-        (list_less_func *) &compare_priority, NULL);
-    reorder_readylist();
+    list_push_back(&donate_to->donor,&thread_current()->donorelem);
 }
 
 void
@@ -370,9 +368,9 @@ thread_get_priority (void)
 {
   if(!list_empty(&thread_current()->donor)){
       list_sort(&thread_current()->donor,
-                 (list_less_func *) &compare_priority, NULL);
+                 (list_less_func *) &cmp_priority_donor, NULL);
       struct thread *a=list_entry(list_front(&thread_current()->donor),
-          struct thread, elem);
+          struct thread, donorelem);
       if(thread_current()->priority < a->priority){
           return  a->priority;
       }
@@ -384,9 +382,9 @@ thread_get_priority (void)
 int
 thread_get_pri(struct thread * a){
   if(!list_empty(&a->donor)){
-      list_sort(&a->donor,(list_less_func *) &compare_priority, NULL);
+      list_sort(&a->donor,(list_less_func *) &cmp_priority_donor, NULL);
       struct thread *b=list_entry(list_front(&a->donor),
-                struct thread, elem);
+                struct thread, donorelem);
       if(a->priority < b->priority){
           return  b->priority;
       }
@@ -639,6 +637,20 @@ compare_priority (const struct list_elem *a, const struct list_elem *b,
 {
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
+    if(thread_get_pri(thread_a) > thread_get_pri(thread_b)){
+        return true;
+    }
+    return false;
+
+}
+
+/* Compares the priority of two list_elems for donors */
+bool
+cmp_priority_donor (const struct list_elem *a, const struct list_elem *b,
+                        void *aux UNUSED)
+{
+    struct thread *thread_a = list_entry(a, struct thread, donorelem);
+    struct thread *thread_b = list_entry(b, struct thread, donorelem);
     if(thread_get_pri(thread_a) > thread_get_pri(thread_b)){
         return true;
     }
