@@ -48,6 +48,7 @@ sema_init (struct semaphore *sema, unsigned value)
 
   sema->value = value;
   list_init (&sema->waiters);
+  list_init (&sema->donations);
 }
 
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
@@ -116,9 +117,19 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
 
+  thread_original_priority(&sema->donations);
   if (!list_empty (&sema->waiters)){
     list_sort(&sema->waiters, (list_less_func *) &compare_priority,
                                                             NULL);
+    struct list_elem *e = list_front(&sema->waiters);
+    struct list_elem *i;
+    for(i = list_begin(&sema->donations); i != list_end(&sema->donations);
+               i = list_next(i)){
+        if(list_entry(i, struct thread, iAmdonor)->tid ==
+                    list_entry(e, struct thread, elem)->tid){
+            list_remove(i);
+        }
+    }
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
   }
@@ -203,12 +214,13 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
   enum intr_level old_level;
   old_level = intr_disable();
-  if(!sema_try_down(&lock->semaphore)){
     if(lock->holder != NULL){
-        thread_set_donated(&lock->holder);
+        thread_set_donated(lock->holder);
+        struct semaphore *temp = &lock ->semaphore;
+        list_push_back(&temp->donations,
+                                &thread_current()-> iAmdonor);
     }
     sema_down (&lock->semaphore);
-  }
   lock->holder = thread_current ();
   intr_set_level(old_level);
 }
@@ -246,7 +258,6 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
-  thread_original_priority();
   reorder_readylist();
 }
 

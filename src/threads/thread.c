@@ -345,7 +345,6 @@ void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
-  thread_current ()->orgin_priority = new_priority;
   reorder_readylist();
 }
 /* Sets DONATE_TO priority to current thread's priority */
@@ -355,11 +354,31 @@ thread_set_donated (struct thread* donate_to){
 }
 
 void
-thread_original_priority(){
-    thread_current() -> priority = thread_current()-> orgin_priority;
-    while(!list_empty(&thread_current()->donor)){
-        list_pop_front(&thread_current()->donor);
+thread_original_priority(struct list *donorlist){
+  //  while(!list_empty(&thread_current()->donor)){
+  //      list_pop_front(&thread_current()->donor);
+  //  }
+  if(list_empty(&donorlist) || list_empty(&thread_current()->donor)){
+      return;
+  }
+  struct list_elem *e;
+  struct list_elem *j;
+  for(e = list_begin(donorlist); e != list_end(donorlist); e = list_next(e)){
+    for(j = list_begin(&thread_current()->donor);
+            j != list_end(&thread_current()->donor); j = list_next(j)){
+        if(list_entry(e, struct thread, iAmdonor)->tid ==
+                list_entry(j, struct thread, donorelem)->tid){
+            list_remove(j);
+        }
     }
+  }
+  /*
+  if(!list_empty(&thread_current()->donor)){
+      list_sort(&thread_current()->donor,
+                 (list_less_func *) &cmp_priority_donor, NULL);
+  list_pop_front(&thread_current()->donor);
+  }
+  */
 }
 
 /* Returns the current thread's priority. */
@@ -371,8 +390,8 @@ thread_get_priority (void)
                  (list_less_func *) &cmp_priority_donor, NULL);
       struct thread *a=list_entry(list_front(&thread_current()->donor),
           struct thread, donorelem);
-      if(thread_current()->priority < a->priority){
-          return  a->priority;
+      if(thread_current()->priority < thread_get_pri(a)){
+          return  thread_get_pri(a);
       }
   }
   return thread_current ()->priority;
@@ -508,7 +527,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->deadline = 0;
   t->priority = priority;
-  t->orgin_priority = priority;
   list_init(&t->donor);
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);

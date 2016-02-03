@@ -9,6 +9,7 @@ struct semaphore
   {
     unsigned value;             /* Current value. */
     struct list waiters;        /* List of waiting threads. */
+    struct list donations;      /*list of donations */
   };
 
 void sema_init (struct semaphore *, unsigned value);

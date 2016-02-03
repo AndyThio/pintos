@@ -89,10 +89,10 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int64_t deadline;
     int priority;                       /* Priority. */
-    int orgin_priority;                 /* Original Priority (for donatations)*/
     struct list donor;                  /* Pointer to thread priority donor */
     struct list_elem donorelem;         /* List element for donor list */
     struct list_elem allelem;           /* List element for all threads list. */
+    struct list_elem iAmdonor;          /* used in synch.c to tell if donations*/
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -138,7 +138,7 @@ int thread_get_priority (void);
 int thread_get_pri (struct thread *a);
 void thread_set_priority (int);
 void thread_set_donated(struct thread *donate_to);
-void thread_original_priority(void);
+void thread_original_priority(struct list *donorlist);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
