@@ -312,14 +312,7 @@ cond_init (struct condition *cond)
    This function may sleep, so it must not be called within an
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
-   we need to sleep. */
-void
-cond_wait (struct condition *cond, struct lock *lock)
-{
-  struct semaphore_elem waiter;
-
-  ASSERT (cond != NULL);
-  ASSERT (lock != NULL);
+   we need to sleep. */ void cond_wait (struct condition *cond, struct lock *lock) { struct semaphore_elem waiter; ASSERT (cond != NULL); ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
 
@@ -345,9 +338,11 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
 
-  if (!list_empty (&cond->waiters))
+  if (!list_empty (&cond->waiters)){
+    list_sort(&cond->waiters, (list_less_func *) &cmp_sema, NULL);
     sema_up (&list_entry (list_pop_front (&cond->waiters),
                           struct semaphore_elem, elem)->semaphore);
+  }
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
@@ -365,3 +360,28 @@ cond_broadcast (struct condition *cond, struct lock *lock)
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
 }
+
+bool
+cmp_sema(const struct list_elem *a, const struct list_elem *b,
+                                                void *aux UNUSED){
+struct semaphore_elem *sema_a = list_entry(a, struct semaphore_elem, elem);
+struct semaphore_elem *sema_b = list_entry(b, struct semaphore_elem, elem);
+struct list *temp_a = &sema_a->semaphore.waiters;
+struct list *temp_b = &sema_b->semaphore.waiters;
+if(list_empty(temp_a)){
+    return false;
+}
+if(list_empty(temp_b)){
+    return true;
+}
+    list_sort(temp_a, (list_less_func *) &compare_priority, NULL);
+    list_sort(temp_b, (list_less_func *) &compare_priority, NULL);
+    struct thread *thread_a = list_entry(list_front(temp_a),struct thread,elem);
+    struct thread *thread_b = list_entry(list_front(temp_b),struct thread,elem);
+
+if(thread_get_pri(thread_a) > thread_get_pri(thread_b)){
+    return true;
+}
+return false;
+}
+
