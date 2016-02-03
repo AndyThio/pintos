@@ -134,6 +134,7 @@ sema_up (struct semaphore *sema)
                                 struct thread, elem));
   }
   sema->value++;
+  reorder_readylist();
   intr_set_level (old_level);
 }
 
@@ -214,6 +215,7 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
   enum intr_level old_level;
   old_level = intr_disable();
+  if(!sema_try_down(&lock->semaphore)){
     if(lock->holder != NULL){
         thread_set_donated(lock->holder);
         struct semaphore *temp = &lock ->semaphore;
@@ -221,6 +223,7 @@ lock_acquire (struct lock *lock)
                                 &thread_current()-> iAmdonor);
     }
     sema_down (&lock->semaphore);
+  }
   lock->holder = thread_current ();
   intr_set_level(old_level);
 }
