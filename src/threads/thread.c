@@ -385,8 +385,8 @@ thread_get_pri(struct thread * a){
       list_sort(&a->donor,(list_less_func *) &cmp_priority_donor, NULL);
       struct thread *b=list_entry(list_front(&a->donor),
                 struct thread, donorelem);
-      if(a->priority < b->priority){
-          return  b->priority;
+      if(a->priority < thread_get_pri(b)){
+          return  thread_get_pri(b);
       }
   }
   return a->priority;
