@@ -113,6 +113,9 @@ struct thread
     struct list chldren;               /* list of the thread's children */
     struct child_ ct;                   /*if this is a child thread info */
 
+    struct list files_list;
+    int fd;                             /*file descriptor for the process */
+
     struct file *tbin;
 #endif
 

@@ -9,6 +9,12 @@
 static void syscall_handler (struct intr_frame *);
 struct lock filelock;
 
+struct files{
+    int fd;
+    struct file *fil;
+    struct list_elem filelem;
+};
+
 void
 syscall_init (void)
 {
@@ -55,6 +61,11 @@ syscall_handler (struct intr_frame *f)
                 f -> eax = write(args[0], args[1], args[2]);
                 break;
              }
+        case SYS_READ:
+            {
+                numOfArgs = 3;
+                copy_in (args, (uint32_t*) f->esp + 1, sizeof *args * numOfArgs);
+                f -> eax = read(args[0], args[1], args[2]);
     }
 }
 
@@ -76,13 +87,33 @@ int write(int fd, const void*buffer, unsigned size){
         return size;
     }
 
-    //lock_aquire(filelock);
-    //if (!fd)
-    //lock_release(filelock);
-    //  W:not quite done
+    lock_aquire(&filelock);
+    struct file *copyTo = get_file(fd);
+    if (copyTo == NULL){
+        lock_release(&filelock);
+        return -1;
+    }
+    int ret = file_write(copyTo, buffer, size);
+    lock_release(&filelock);
+    return ret;
 }
 
+int read(int fd, void *buffer, unsigned size){
+    if (fd == STDIN_FILENO){
+        input_getc(buffer, size);
+        return size;
+    }
 
+    lock_aquire(&filelock);
+    struct file *readFrom = get_file(fd);
+    if(readFrom == NULL){
+        lock_release(&filelock);
+        return -1;
+    }
+    int ret = file_read(readFrom, buffer, size);
+    lock_release(&filelock);
+    return ret;
+}
 
 /* Copies SIZE bytes from user address USRC to kernel address
    DST.
@@ -154,4 +185,17 @@ verify_user (const void *uaddr)
 {
   return (uaddr < PHYS_BASE
           && pagedir_get_page (thread_current ()->pagedir, uaddr) != NULL);
+}
+
+struct file*
+get_file(int fd){
+    struct thread *curr = thread_current();
+    struct list_elem *e;
+    for(e = list_begin(t->files_list); e != list_end(files_list); e = list_next(e)){
+        struct file *temp = list_entry(e, struct file, filelem);
+        if(temp->fd == fd){
+            return temp;
+        }
+    }
+    return NULL;
 }
