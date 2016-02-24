@@ -5,9 +5,32 @@
 #include "threads/thread.h"
 #include "threads/synch.h"
 #include "filesys/filesys.h"
+#include "filesys/file.h"
+#include "threads/vaddr.h"
+#include "devices/shutdown.h"
 
 static void syscall_handler (struct intr_frame *);
 struct lock filelock;
+
+
+//syscall handler helper functions
+static void copy_in (void *, const void *, size_t);
+static char *copy_in_string (const char *);
+static inline bool get_user (uint8_t *, const uint8_t *);
+static bool verify_user (const void *);
+
+//syscall functions
+void halt(void);
+void exit (int );
+int write(int , const void *, unsigned );
+int read(int , void *, unsigned );
+pid_t exec (const char* );
+int wait(pid_t );
+bool create (const char *, unsigned );
+bool remove (const char *);
+
+//helper functions
+struct file* get_file(int );
 
 struct files{
     int fd;
@@ -19,7 +42,7 @@ void
 syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
-  lock_init(filelock);
+  lock_init(&filelock);
 }
 
 static void
@@ -31,7 +54,7 @@ syscall_handler (struct intr_frame *f)
 
 
     //##Get syscall number
-    copy_in (&callNum, f->esp, sizeof callNum);
+    copy_in (&callNum, f->esp, sizeof(callNum));
 
     //##Using the number find out which system call is being used
     //inumOfArgs = number of args that system call uses {0,1,2,3}
@@ -45,32 +68,105 @@ syscall_handler (struct intr_frame *f)
 
     //f->eax = desired_sys_call_fun (args[0], args[1], args[2]);
     //  W:so obvious...
-    /
-    switch(callnum){
+    switch(callNum){
+        // Halt the operating system
+        case SYS_HALT:
+            {
+                numOfArgs = 0;
+                halt();
+                break;
+            }
+        // Terminate this process
         case SYS_EXIT:
             {
                 numOfArgs = 1;
                 copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
-                f->eax = exit(args[0]);
+                exit(args[0]);
                 break;
             }
-        case SYS_WRITE:
-             {
-                numOfArgs = 3;
+        // Start another process
+        case SYS_EXEC:
+            {
+                numOfArgs = 1;
                 copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
-                f -> eax = write(args[0], args[1], args[2]);
+                f->eax = exec((const char*) args[0]);
                 break;
-             }
+            }
+        // Wait for a child process to die
+        case SYS_WAIT:
+            {
+                numOfArgs = 1;
+                copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
+                f->eax = wait(args[0]);
+                break;
+            }
+        // Create a file
+        case SYS_CREATE:
+            {
+                numOfArgs = 2;
+                copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
+                f->eax = create(args[0], args[1]);
+                break;
+            }
+        // Delete a file
+        case SYS_REMOVE:
+            {
+                numOfArgs = 1;
+                copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
+                f->eax = remove(args[0]);
+                break;
+            }
+        //TODO: Open a file
+        case SYS_OPEN:
+            {
+
+            }
+        //TODO: Obtain a file's size
+        case SYS_FILESIZE:
+            {
+
+            }
+        // Read from a file
         case SYS_READ:
             {
                 numOfArgs = 3;
                 copy_in (args, (uint32_t*) f->esp + 1, sizeof *args * numOfArgs);
-                f -> eax = read(args[0], args[1], args[2]);
+                f -> eax = read(args[0], (void *)args[1],(unsigned) args[2]);
+            }
+        // Write to a file
+        case SYS_WRITE:
+             {
+                numOfArgs = 3;
+                copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
+                f -> eax = write(args[0], (void *)args[1], (unsigned)args[2]);
+                break;
+             }
+        //TODO: Change position in a file
+        case SYS_SEEK:
+            {
+
+            }
+        //TODO: Report current position in a file
+        case SYS_TELL:
+            {
+
+            }
+        //TODO: Close a file
+        case SYS_CLOSE:
+        {
+
+        }
     }
 }
 
-void exit (int status){
-    struct thread * curr = current_thread();
+void
+halt (void){
+    shutdown_power_off();
+}
+
+void
+exit (int status){
+    struct thread *curr = thread_current();
 
     if (find_thread(curr -> parent_tid)){
         curr -> ct -> stat = status;
@@ -81,13 +177,44 @@ void exit (int status){
 
 }
 
-int write(int fd, const void*buffer, unsigned size){
+pid_t
+exec (const char* cmdl_line){
+    if(verify_user(cmd_line)){
+        return process_execute(cmd_line);
+    }
+    exit(-1);
+    return -1;
+}
+
+int
+wait(pid_t pid){
+    return process_wait(pid);
+}
+
+bool
+create(const char *file, unsigned initial_size){
+    lock_acquire(&filelock);
+    bool ret = filesys_create(file, initial_size);
+    lock_release(&filelock);
+    return ret;
+}
+
+bool
+remove(const char *file){
+    lock_acquire(&filelock);
+    bool ret = filesys_remove(file);
+    lock_release(&filelock);
+    return ret;
+}
+
+int
+write(int fd, const void*buffer, unsigned size){
     if (fd == STDOUT_FILENO){
         putbuf(buffer, size);
         return size;
     }
 
-    lock_aquire(&filelock);
+    lock_acquire(&filelock);
     struct file *copyTo = get_file(fd);
     if (copyTo == NULL){
         lock_release(&filelock);
@@ -98,13 +225,14 @@ int write(int fd, const void*buffer, unsigned size){
     return ret;
 }
 
-int read(int fd, void *buffer, unsigned size){
+int
+read(int fd, void *buffer, unsigned size){
     if (fd == STDIN_FILENO){
         input_getc(buffer, size);
         return size;
     }
 
-    lock_aquire(&filelock);
+    lock_acquire(&filelock);
     struct file *readFrom = get_file(fd);
     if(readFrom == NULL){
         lock_release(&filelock);
@@ -191,10 +319,11 @@ struct file*
 get_file(int fd){
     struct thread *curr = thread_current();
     struct list_elem *e;
-    for(e = list_begin(t->files_list); e != list_end(files_list); e = list_next(e)){
-        struct file *temp = list_entry(e, struct file, filelem);
+    for(e = list_begin(&curr->files_list);
+            e != list_end(&curr->files_list); e = list_next(e)){
+        struct files *temp = list_entry(e, struct files, filelem);
         if(temp->fd == fd){
-            return temp;
+            return temp->fil;
         }
     }
     return NULL;

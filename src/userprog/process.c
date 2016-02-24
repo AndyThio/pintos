@@ -20,17 +20,17 @@
 #include "threads/synch.h"
 
 #define MAX_ARGV 32
-static thread_func start_process NO_RETURN;
-static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
 struct exec_helper
 {
-   const char *file_name;
-   semaphore loadingFile;
-   bool loadedsuccess;
+   char *file_name;
+   struct semaphore loadingFile;
+   bool success;
    //add something to transfer between process_execute and process_start
-}
+};
 
+static thread_func start_process NO_RETURN;
+static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
 
 /* Starts a new thread running a user program loaded from
@@ -40,22 +40,22 @@ struct exec_helper
 tid_t
 process_execute (const char *file_name)
 {
-    struct exec_helper *exec;
-    char thread_name[16];
-    char *saveptr;
-    char *fn_copy = NULL;
+  struct exec_helper *exec;
+  char *saveptr;
+  char *fn_copy = NULL;
   tid_t tid;
 
   strlcpy(exec->file_name, file_name, PGSIZE);
   sema_init(&exec->loadingFile, 0);
   strlcpy (fn_copy, file_name, PGSIZE);
-  thread_name = strtok_r(fn_copy, " ", &saveptr);
+  //warning unused thread_name
+  char* thread_name = strtok_r(fn_copy, " ", &saveptr);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, &exec);
-  if (tid == TID_ERROR){
+  if (tid != TID_ERROR){
       sema_down(&exec->loadingFile);
-      if (exec->loadedsuccess == true){
+      if (exec->success == true){
         struct thread *t = find_thread(tid);
         t->parent_tid = thread_current()->tid;
 
@@ -64,18 +64,22 @@ process_execute (const char *file_name)
         t->ct->c_exit = false;
         t->ct->stat = 0;
 
-        list_push_back(thread_current()->children, t->ct->childelem);
+        list_push_back(&thread_current()->children, &t->ct->childelem);
+
       }
       else
-          tid == TID_ERROR;
+          tid = TID_ERROR;
+  }
   return tid;
 }
+
 
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *exec)
+start_process (void *execarg)
 {
+  struct exec_helper *exec = execarg;
   char *file_name = exec->file_name;
   struct intr_frame if_;
 
@@ -86,7 +90,7 @@ start_process (void *exec)
   if_.eflags = FLAG_IF | FLAG_MBS;
   exec->success = load (file_name, &if_.eip, &if_.esp);
 
-  sema_ up(&exec->loadingFile);
+  sema_up(&exec->loadingFile);
 
   /* If load failed, quit. */
   if (!exec->success)
@@ -114,12 +118,12 @@ start_process (void *exec)
 int
 process_wait (tid_t child_tid)
 {
-  list_elem *e;
+  struct list_elem *e;
   struct child_ *ctemp = NULL;
-  for(e = list_begin(thread_current()-> children); e!=list_end(thread_currnt()->children);
+  for(e = list_begin(&thread_current()-> children); e!=list_end(&thread_current()->children);
         e = list_next(e)){
-      *ctemp = list_entry(e, struct child_, childelem);
-      if(child_tid == temp->child_tid){
+      ctemp = list_entry(e, struct child_, childelem);
+      if(child_tid == ctemp->child_tid){
           break;
       }
       else{
@@ -127,15 +131,15 @@ process_wait (tid_t child_tid)
       }
   }
   if(child_tid == TID_ERROR || ctemp == NULL || ctemp -> c_wait){
-      return -1
+      return -1;
   }
   while(!ctemp->c_exit){
       barrier();
   }
   int retstatus = ctemp->stat;
-  list_remove(ctemp->childelem);
+  list_remove(&ctemp->childelem);
   palloc_free_page(ctemp);
-  return restatus;
+  return retstatus;
 }
 
 /* Free the current process's resources. */
@@ -144,8 +148,8 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  if(find_thread(cur->parent_tid) != NULL){
-      curr->cp->c_exit = true;
+  if(find_thread(cur->parent_tid) != NULL)
+      cur->ct->c_exit = true;
   file_close(thread_current()->tbin);
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -261,7 +265,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp, const char* cmd_line);
+static bool setup_stack (void **esp,const char* cmd_line);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -277,16 +281,16 @@ bool
 load (const char *cmd_line, void (**eip) (void), void **esp)
 {
   struct thread *t = thread_current ();
-  char file_name[NAME_MAX+2];
   struct Elf32_Ehdr ehdr;
-  char file_name[NAME_MAX + 2]
   struct file *file = NULL;
   off_t file_ofs;
   bool success = false;
   char *charPointer;
+  char cmdl_tok[sizeof(cmd_line)+1];
   int i;
 
-  file_name = strtok_r(cmd_line, " ", charPointer);
+  strlcpy(cmdl_tok, cmd_line,sizeof(cmd_line) +1);
+  char *file_name = strtok_r(cmdl_tok, " ", &charPointer);
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -483,7 +487,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp, char* cmd_line)
+setup_stack (void **esp,const char* cmd_line)
 {
   uint8_t *kpage;
   bool success = false;
@@ -491,7 +495,7 @@ setup_stack (void **esp, char* cmd_line)
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL)
     {
-      uint8_t *upage = ( (uint8_t *) PHY_BASE) - PGSIZE;
+      uint8_t *upage = ( (uint8_t *) PHYS_BASE) - PGSIZE;
       success = install_page (upage, kpage, true);
       if (success)
         success = setup_stack_helper(cmd_line, kpage, upage, esp);
@@ -561,7 +565,7 @@ static bool setup_stack_helper (const char * cmd_line, uint8_t * kpage, uint8_t 
   int argv_count = 0;
   char *addr = NULL;
   char *addrlist[MAX_ARGV];
-  char *cmdl_cpy [strlen(cmd_line)+1];
+  char cmdl_cpy [strlen(cmd_line)+1];
 
   strlcpy(cmdl_cpy, cmd_line, strlen(cmd_line)+1);
   //##Parse and put in command line arguments, push each value
@@ -573,7 +577,8 @@ static bool setup_stack_helper (const char * cmd_line, uint8_t * kpage, uint8_t 
     tok_value = strtok_r(cmdl_cpy, " ", &ptr);
   }
 
-  for(int i = argv_count-1; i >= 0; --i){
+  int i = 0;
+  for(i = argv_count-1; i >= 0; --i){
     addr = push(kpage, &ofs, argvlist[i], strlen(argvlist[i])+1);
     if(addr == NULL){
       return false;
@@ -590,8 +595,9 @@ static bool setup_stack_helper (const char * cmd_line, uint8_t * kpage, uint8_t 
 
   //##Push argv addresses (i.e. for the cmd_line added above) in reverse order
   //##See the stack example on documentation for what "reversed" means
-  for(int i = argv_count-1; i >= 0; --i){
-    addr = push(kpage, &ofs, argvlist[i], strlen(argvlist[i])+1);
+  int j = 0;
+  for( j = argv_count-1; j >= 0; --j){
+    addr = push(kpage, &ofs, argvlist[j], strlen(argvlist[j])+1);
     if(addr == NULL){
       return false;
     }

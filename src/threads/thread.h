@@ -88,6 +88,7 @@ struct child_{
     int stat;
 
     struct list_elem childelem;
+};
 struct thread
   {
     /* Owned by thread.c. */
@@ -110,8 +111,8 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
     tid_t parent_tid;                   /* parent's tid */
 
-    struct list chldren;               /* list of the thread's children */
-    struct child_ ct;                   /*if this is a child thread info */
+    struct list children;               /* list of the thread's children */
+    struct child_ *ct;                   /*if this is a child thread info */
 
     struct list files_list;
     int fd;                             /*file descriptor for the process */
