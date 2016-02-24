@@ -79,10 +79,11 @@ start_process (void *exec)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  exec->success = load (file_name, &if_.eip, &if_.esp);
+
+  sema_ up(&exec->loadingFile);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
   if (!exec->success)
     thread_exit ();
 
@@ -119,6 +120,7 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  file_close(thread_current()->tbin);
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -152,7 +154,6 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  file_close(thread_current()->tbin);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -234,11 +235,13 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, const char* cmd_line);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
+
+static bool setup_stack_helper(const char*, uint8_t *, uint8_t *, void **esp);
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
    Stores the executable's entry point into *EIP
@@ -256,8 +259,8 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
   bool success = false;
   char *charPointer;
   int i;
-  char cmdl[strlen(cmd_line) + 1];
 
+  file_name = strtok_r(cmd_line, " ", charPointer);
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
