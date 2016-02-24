@@ -534,6 +534,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
    returns a pointer to the frame's base. */
+
 static void *
 alloc_frame (struct thread *t, size_t size)
 {
@@ -648,6 +649,19 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
+/* Returns the thread of the corresponding t_tid */
+struct thread*
+find_thread(tid_t threadid){
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      if(t->tid == threadid){
+          return t;
+      }
+    }
+    return NULL;
+}
 /* Compares the priority of two list_elems */
 bool
 compare_priority (const struct list_elem *a, const struct list_elem *b,
