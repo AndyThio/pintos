@@ -652,6 +652,7 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 /* Returns the thread of the corresponding t_tid */
 struct thread*
 find_thread(tid_t threadid){
+  struct list_elem *e;
   for (e = list_begin (&all_list); e != list_end (&all_list);
        e = list_next (e))
     {

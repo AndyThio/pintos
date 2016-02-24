@@ -80,9 +80,6 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
-struct children{
-    tid_t childpid;
-}
 struct thread
   {
     /* Owned by thread.c. */
@@ -105,11 +102,10 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
     tid_t parent_tid;                   /* parent's tid */
 
-    struct list children;               /* list of the thread's children */
+    struct list chldren;               /* list of the thread's children */
     struct list_elem childelem;         /* element to show it is a child */
 
-    struct file *tbin;                  /* thread bin to use for exiting */
-
+    struct file *tbin;
 #endif
 
     /* Owned by thread.c. */
@@ -156,7 +152,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-struct thread *find_thread(tid_t tid);
+struct thread *find_thread(tid_t);
 bool compare_priority(const struct list_elem *a, const struct list_elem *b,
                                         void *aux UNUSED);
 bool cmp_priority_donor(const struct list_elem *a, const struct list_elem *b,
