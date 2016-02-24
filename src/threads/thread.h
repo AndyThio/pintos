@@ -80,6 +80,14 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+struct child_{
+    tid_t child_tid;
+    bool c_exit;
+    bool c_wait;
+
+    int stat;
+
+    struct list_elem childelem;
 struct thread
   {
     /* Owned by thread.c. */
@@ -103,7 +111,7 @@ struct thread
     tid_t parent_tid;                   /* parent's tid */
 
     struct list chldren;               /* list of the thread's children */
-    struct list_elem childelem;         /* element to show it is a child */
+    struct child_ ct;                   /*if this is a child thread info */
 
     struct file *tbin;
 #endif

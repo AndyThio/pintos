@@ -59,7 +59,12 @@ process_execute (const char *file_name)
         struct thread *t = find_thread(tid);
         t->parent_tid = thread_current()->tid;
 
-        list_push_back(thread_current()->children, t->childelem);
+        t->ct-> child_tid = tid;
+        t->ct->c_wait = false;
+        t->ct->c_exit = false;
+        t->ct->stat = 0;
+
+        list_push_back(thread_current()->children, t->ct->childelem);
       }
       else
           tid == TID_ERROR;
@@ -107,10 +112,30 @@ start_process (void *exec)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED)
+process_wait (tid_t child_tid)
 {
-  while(true);
-  return -1;
+  list_elem *e;
+  struct child_ *ctemp = NULL;
+  for(e = list_begin(thread_current()-> children); e!=list_end(thread_currnt()->children);
+        e = list_next(e)){
+      *ctemp = list_entry(e, struct child_, childelem);
+      if(child_tid == temp->child_tid){
+          break;
+      }
+      else{
+          ctemp = NULL;
+      }
+  }
+  if(child_tid == TID_ERROR || ctemp == NULL || ctemp -> c_wait){
+      return -1
+  }
+  while(!ctemp->c_exit){
+      barrier();
+  }
+  int retstatus = ctemp->stat;
+  list_remove(ctemp->childelem);
+  palloc_free_page(ctemp);
+  return restatus;
 }
 
 /* Free the current process's resources. */
@@ -119,7 +144,8 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-
+  if(find_thread(cur->parent_tid) != NULL){
+      curr->cp->c_exit = true;
   file_close(thread_current()->tbin);
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
