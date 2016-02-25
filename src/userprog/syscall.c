@@ -1,5 +1,7 @@
 #include "userprog/syscall.h"
+#include "userprog/process.h"
 #include <stdio.h>
+#include <stdbool.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -8,6 +10,8 @@
 #include "filesys/file.h"
 #include "threads/vaddr.h"
 #include "devices/shutdown.h"
+
+typedef int pid_t;
 
 static void syscall_handler (struct intr_frame *);
 struct lock filelock;
@@ -24,7 +28,7 @@ void halt(void);
 void exit (int );
 int write(int , const void *, unsigned );
 int read(int , void *, unsigned );
-pid_t exec (const char* );
+pid_t exec(const char* );
 int wait(pid_t );
 bool create (const char *, unsigned );
 bool remove (const char *);
@@ -105,7 +109,7 @@ syscall_handler (struct intr_frame *f)
             {
                 numOfArgs = 2;
                 copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
-                f->eax = create(args[0], args[1]);
+                f->eax = create((const char *) args[0], args[1]);
                 break;
             }
         // Delete a file
@@ -113,7 +117,7 @@ syscall_handler (struct intr_frame *f)
             {
                 numOfArgs = 1;
                 copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
-                f->eax = remove(args[0]);
+                f->eax = remove((const char *) args[0]);
                 break;
             }
         //TODO: Open a file
@@ -178,7 +182,7 @@ exit (int status){
 }
 
 pid_t
-exec (const char* cmdl_line){
+exec (const char* cmd_line){
     if(verify_user(cmd_line)){
         return process_execute(cmd_line);
     }

@@ -40,22 +40,24 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name)
 {
-  struct exec_helper *exec;
-  char *saveptr;
-  char *fn_copy = NULL;
+  struct exec_helper exec;
+  //char *saveptr;
+  //char *fn_copy = NULL;
   tid_t tid;
 
-  strlcpy(exec->file_name, file_name, PGSIZE);
-  sema_init(&exec->loadingFile, 0);
-  strlcpy (fn_copy, file_name, PGSIZE);
+  exec.file_name = palloc_get_page(0);
+
+  strlcpy(exec.file_name, file_name, PGSIZE);
+  sema_init(&exec.loadingFile, 0);
+  //strlcpy (fn_copy, file_name, PGSIZE);
   //warning unused thread_name
-  char* thread_name = strtok_r(fn_copy, " ", &saveptr);
+  //char* thread_name = strtok_r(fn_copy, " ", &saveptr);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, &exec);
   if (tid != TID_ERROR){
-      sema_down(&exec->loadingFile);
-      if (exec->success == true){
+      sema_down(&exec.loadingFile);
+      if (exec.success == true){
         struct thread *t = find_thread(tid);
         t->parent_tid = thread_current()->tid;
 
@@ -133,6 +135,7 @@ process_wait (tid_t child_tid)
   if(child_tid == TID_ERROR || ctemp == NULL || ctemp -> c_wait){
       return -1;
   }
+  ctemp -> c_wait = true;
   while(!ctemp->c_exit){
       barrier();
   }
@@ -564,7 +567,7 @@ static bool setup_stack_helper (const char * cmd_line, uint8_t * kpage, uint8_t 
   char *argvlist[MAX_ARGV];
   int argv_count = 0;
   char *addr = NULL;
-  char *addrlist[MAX_ARGV];
+  void *addrlist[MAX_ARGV];
   char cmdl_cpy [strlen(cmd_line)+1];
 
   strlcpy(cmdl_cpy, cmd_line, strlen(cmd_line)+1);
