@@ -101,12 +101,12 @@ start_process (void *execarg)
   sema_up(&exec->loadingFile);
 
   /* If load failed, quit. */
-
+/*
   if (!exec->success){
       printf("this process has failed to load");
     thread_exit ();
   }
-
+*/
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
