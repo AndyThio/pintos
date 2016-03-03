@@ -133,9 +133,10 @@ syscall_handler (struct intr_frame *f)
         // Read from a file
         case SYS_READ:
             {
-                numOfArgs = 3;
+ /*               numOfArgs = 3;
                 copy_in (args, (uint32_t*) f->esp + 1, sizeof *args * numOfArgs);
                 f -> eax = read(args[0], (void *)args[1],(unsigned) args[2]);
+                */
             }
         // Write to a file
         case SYS_WRITE:
@@ -177,6 +178,7 @@ exit (int status){
     }
 
     printf("%s: exit(%d) \n", curr -> name, status);
+    ASSERT(false);
     thread_exit();
 
 }
@@ -228,7 +230,7 @@ write(int fd, const void*buffer, unsigned size){
     lock_release(&filelock);
     return ret;
 }
-
+/*
 int
 read(int fd, void *buffer, unsigned size){
     if (fd == STDIN_FILENO){
@@ -246,6 +248,7 @@ read(int fd, void *buffer, unsigned size){
     lock_release(&filelock);
     return ret;
 }
+*/
 
 /* Copies SIZE bytes from user address USRC to kernel address
    DST.

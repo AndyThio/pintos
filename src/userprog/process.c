@@ -41,37 +41,43 @@ tid_t
 process_execute (const char *file_name)
 {
   struct exec_helper exec;
-  //char *saveptr;
-  //char *fn_copy = NULL;
+  char *saveptr;
+  char *fn_copy = palloc_get_page(0);
   tid_t tid;
 
   exec.file_name = palloc_get_page(0);
 
   strlcpy(exec.file_name, file_name, PGSIZE);
   sema_init(&exec.loadingFile, 0);
-  //strlcpy (fn_copy, file_name, PGSIZE);
+  strlcpy (fn_copy, file_name, PGSIZE);
   //warning unused thread_name
-  //char* thread_name = strtok_r(fn_copy, " ", &saveptr);
+  char* thread_name = strtok_r(fn_copy, " ", &saveptr);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, &exec);
+  tid = thread_create (thread_name, PRI_DEFAULT, start_process, &exec);
   if (tid != TID_ERROR){
       sema_down(&exec.loadingFile);
       if (exec.success == true){
+        /*struct child_ *temp = malloc(sizeof(struct child_));
         struct thread *t = find_thread(tid);
         t->parent_tid = thread_current()->tid;
 
-        t->ct-> child_tid = tid;
-        t->ct->c_wait = false;
-        t->ct->c_exit = false;
-        t->ct->stat = 0;
+        temp->child_tid = tid;
+        temp->c_wait = false;
+        temp->c_exit = false;
+        temp->stat = 0;
 
-        list_push_back(&thread_current()->children, &t->ct->childelem);
+        t->ct = temp;
+
+        list_push_back(&thread_current()->children, &temp->childelem);
+        */
 
       }
       else
           tid = TID_ERROR;
   }
+  palloc_free_page(exec.file_name);
+  palloc_free_page(fn_copy);
   return tid;
 }
 
@@ -95,8 +101,12 @@ start_process (void *execarg)
   sema_up(&exec->loadingFile);
 
   /* If load failed, quit. */
-  if (!exec->success)
+
+  if (!exec->success){
+      printf("this process has failed to load");
     thread_exit ();
+  }
+
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -143,6 +153,7 @@ process_wait (tid_t child_tid)
   list_remove(&ctemp->childelem);
   palloc_free_page(ctemp);
   return retstatus;
+
 }
 
 /* Free the current process's resources. */
@@ -151,26 +162,21 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  if(find_thread(cur->parent_tid) != NULL)
+  if(find_thread(cur->parent_tid) != NULL){
       cur->ct->c_exit = true;
+  }
+  /*
+  struct list_elem *e;
+  if(list_empty(&cur->children)){
+      printf("this is the child");
+  }
+  for(e = list_begin(&cur->children); e != list_end(&cur->children);
+        e = list_next(e)){
+      struct child_ *temp= list_entry(e, struct child_,childelem);
+      printf("child tid = %i", temp-> stat);
+  }
+  */
   file_close(thread_current()->tbin);
-  /* Destroy the current process's page directory and switch back
-     to the kernel-only page directory. */
-  pd = cur->pagedir;
-  if (pd != NULL)
-    {
-      /* Correct ordering here is crucial.  We must set
-         cur->pagedir to NULL before switching page directories,
-         so that a timer interrupt can't switch back to the
-         process page directory.  We must activate the base page
-         directory before destroying the process's page
-         directory, or our active page directory will be one
-         that's been freed (and cleared). */
-      cur->pagedir = NULL;
-      pagedir_activate (NULL);
-      pagedir_destroy (pd);
-    }
-
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -289,11 +295,14 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   char *charPointer;
-  char cmdl_tok[sizeof(cmd_line)+1];
+  char cmdl_tok[NAME_MAX+2];
   int i;
 
-  strlcpy(cmdl_tok, cmd_line,sizeof(cmd_line) +1);
+
+  strlcpy(cmdl_tok, cmd_line,NAME_MAX+2);
   char *file_name = strtok_r(cmdl_tok, " ", &charPointer);
+
+  printf("The file loaded is: %s", file_name);
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -385,8 +394,10 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp, cmd_line))
+  if (!setup_stack (esp, cmd_line)){
+      printf("\nThe stack has failed to load\n");
     goto done;
+  }
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -395,6 +406,12 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
+  if(success == true){
+      printf("\nload was successful\n");
+      }
+      else if(success == false){
+          printf("\nload was failed\n");
+      }
   return success;
 }
 

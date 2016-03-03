@@ -204,6 +204,17 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  struct child_ *childtemp = palloc_get_page(0);
+  childtemp->child_tid = t->tid;
+  childtemp->c_wait = false;
+  childtemp->c_exit = false;
+
+  list_push_back(&thread_current()->children, &childtemp->childelem);
+
+  t->ct = childtemp;
+  t->parent_tid = thread_current()->tid;
+
+
   intr_set_level (old_level);
 
   /* Add to run queue. */
@@ -528,6 +539,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->deadline = 0;
   t->priority = priority;
   list_init(&t->donor);
+  list_init(&t->children);
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 }
