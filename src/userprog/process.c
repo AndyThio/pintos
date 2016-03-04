@@ -41,7 +41,7 @@ tid_t
 process_execute (const char *file_name)
 {
   struct exec_helper exec;
-  char *saveptr;
+  char *saveptr = NULL;
   char *fn_copy = palloc_get_page(0);
   tid_t tid;
 
@@ -101,12 +101,10 @@ start_process (void *execarg)
   sema_up(&exec->loadingFile);
 
   /* If load failed, quit. */
-/*
   if (!exec->success){
       printf("this process has failed to load");
     thread_exit ();
   }
-*/
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -294,12 +292,12 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
   struct file *file = NULL;
   off_t file_ofs;
   bool success = false;
-  char *charPointer;
-  char cmdl_tok[NAME_MAX+2];
+  char *charPointer = NULL;
+  char cmdl_tok[strlen(cmd_line)+2];
   int i;
 
 
-  strlcpy(cmdl_tok, cmd_line,NAME_MAX+2);
+  strlcpy(cmdl_tok, cmd_line,strlen(cmd_line)+2);
   char *file_name = strtok_r(cmdl_tok, " ", &charPointer);
 
   printf("The file loaded is: %s", file_name);

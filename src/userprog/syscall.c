@@ -177,8 +177,14 @@ exit (int status){
         curr -> ct -> stat = status;
     }
 
+    file_close(curr->tbin);
+    while(!list_empty(&curr->children)){
+        struct child_ *ctemp = list_entry(list_begin(&curr->children), struct child_,
+            childelem);
+        list_pop_front(&curr->children);
+        palloc_free_page(ctemp);
+    }
     printf("%s: exit(%d) \n", curr -> name, status);
-    ASSERT(false);
     thread_exit();
 
 }
