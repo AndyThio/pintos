@@ -32,6 +32,8 @@ pid_t exec(const char* );
 int wait(pid_t );
 bool create (const char *, unsigned );
 bool remove (const char *);
+int open (const char *);
+int filesize(int);
 
 //helper functions
 struct file* get_file(int );
@@ -124,23 +126,28 @@ syscall_handler (struct intr_frame *f)
                 f->eax = remove((const char *) args[0]);
                 break;
             }
-        //TODO: Open a file
+        // Open a file
         case SYS_OPEN:
             {
-
+                numOfArgs = 1;
+                copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
+                f->eax = open((const char *) args[0]);
+                break;
             }
-        //TODO: Obtain a file's size
+        // Obtain a file's size
         case SYS_FILESIZE:
             {
-
+                numOfArgs = 1;
+                copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
+                f->eax = filesize(args[0]);
+                break;
             }
         // Read from a file
         case SYS_READ:
             {
- /*               numOfArgs = 3;
+                numOfArgs = 3;
                 copy_in (args, (uint32_t*) f->esp + 1, sizeof *args * numOfArgs);
                 f -> eax = read(args[0], (void *)args[1],(unsigned) args[2]);
-                */
             }
         // Write to a file
         case SYS_WRITE:
@@ -179,6 +186,14 @@ exit (int status){
 
     if (find_thread(curr -> parent_tid)){
         curr -> ct -> stat = status;
+    }
+
+    while(!list_empty(&curr->files_list)){
+        struct files *ftemp = list_entry(list_begin(&curr->files_list), struct files,
+            filelem);
+        list_pop_front(&curr->files_list);
+        file_close(ftemp->fil);
+        palloc_free_page(ftemp);
     }
 
     while(!list_empty(&curr->children)){
@@ -227,7 +242,52 @@ remove(const char *file){
 }
 
 int
+open(const char *file){
+    if(!verify_user(file)){
+        exit(-1);
+        return -1;
+    }
+    struct files *newfile = palloc_get_page(0);
+    newfile->fil = filesys_open(file);
+
+    if(newfile->fil == NULL){
+        return -1;
+    }
+
+    if(list_empty(&thread_current()->files_list)){
+        newfile->fd = 2;
+    }
+    else{
+        struct list_elem *e;
+        int max_fd = 1;
+        for(e = list_begin(&thread_current()->files_list);
+              e!= list_end(&thread_current()->files_list);
+              e = list_next(e)){
+          struct files *temp= list_entry(e,struct files, filelem);
+          if(temp->fd > max_fd){
+              max_fd = temp->fd;
+          }
+        }
+
+        newfile->fd = max_fd+1;
+    }
+
+    list_push_back(&thread_current()->files_list, &newfile->filelem);
+
+    return newfile->fd;
+}
+
+int
+filesize(int fd){
+    return (int)file_length(get_file(fd)->fil);
+}
+
+int
 write(int fd, const void*buffer, unsigned size){
+    if(!verify_user(buffer)){
+        exit(-1);
+        return -1;
+    }
     if (fd == STDOUT_FILENO){
         putbuf(buffer, size);
         return size;
@@ -243,10 +303,18 @@ write(int fd, const void*buffer, unsigned size){
     lock_release(&filelock);
     return ret;
 }
-/*
+
 int
 read(int fd, void *buffer, unsigned size){
+    if(!verify_user(buffer)){
+        exit(-1);
+        return -1;
+    }
     if (fd == STDIN_FILENO){
+        uint8_t* buf_temp = (uint8_t *) buffer;
+        int i;
+        for(i = 0; i < size; ++i){
+
         input_getc(buffer, size);
         return size;
     }
@@ -261,7 +329,6 @@ read(int fd, void *buffer, unsigned size){
     lock_release(&filelock);
     return ret;
 }
-*/
 
 /* Copies SIZE bytes from user address USRC to kernel address
    DST.
