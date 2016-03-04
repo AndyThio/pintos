@@ -56,6 +56,10 @@ syscall_handler (struct intr_frame *f)
     int args[3];
     int numOfArgs;
 
+    //verify if esp is a valid pointer
+    if(!verify_user(f->esp)){
+        exit(-1);
+    }
 
     //##Get syscall number
     copy_in (&callNum, f->esp, sizeof(callNum));
@@ -177,14 +181,13 @@ exit (int status){
         curr -> ct -> stat = status;
     }
 
-    file_close(curr->tbin);
     while(!list_empty(&curr->children)){
         struct child_ *ctemp = list_entry(list_begin(&curr->children), struct child_,
             childelem);
         list_pop_front(&curr->children);
         palloc_free_page(ctemp);
     }
-    printf("%s: exit(%d) \n", curr -> name, status);
+    printf("%s: exit(%d)\n", curr -> name, status);
     thread_exit();
 
 }
@@ -205,6 +208,10 @@ wait(pid_t pid){
 
 bool
 create(const char *file, unsigned initial_size){
+    if(!verify_user(file)){
+        exit(-1);
+        return false;
+    }
     lock_acquire(&filelock);
     bool ret = filesys_create(file, initial_size);
     lock_release(&filelock);
@@ -275,10 +282,6 @@ copy_in (void *dst_, const void *usrc_, size_t size)
 
 /* Creates a copy of user string US in kernel memory
    and returns it as a page that must be freed with
-   palloc_free_page().
-   Truncates the string at PGSIZE bytes in size.
-   Call thread_exit() if any of the user accesses are invalid. */
-static char *
 copy_in_string (const char *us)
 {
   char *ks;

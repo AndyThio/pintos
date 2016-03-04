@@ -303,7 +303,6 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
   strlcpy(cmdl_tok, cmd_line,strlen(cmd_line)+2);
   char *file_name = strtok_r(cmdl_tok, " ", &charPointer);
 
-  printf("The file loaded is: %s", file_name);
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -414,12 +413,14 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
+  /*
   if(success == true){
       printf("\nload was successful\n");
       }
       else if(success == false){
           printf("\nload was failed\n");
       }
+      */
   return success;
 }
 
@@ -596,22 +597,6 @@ push (uint8_t *kpage, size_t *offset, const void *buf, size_t size)
   return kpage + *offset + (padsize - size);
 }
 
-static void *
-push2 (uint8_t *kpage, size_t *offset, const void *buf, size_t size)
-{
-  size_t padsize = ROUND_UP (size, sizeof (uint32_t));
-
-  if (*offset < padsize){
-    return NULL;
-  }
-
-  *offset -= padsize;
-
-  memcpy (kpage + *offset + (padsize - size), buf, size);
-
-  return kpage + *offset + (padsize - size);
-}
-
 static bool setup_stack_helper (const char * cmd_line, uint8_t * kpage, uint8_t * upage, void ** esp)
 {
   size_t ofs = PGSIZE; //##Used in push!
@@ -671,7 +656,7 @@ static bool setup_stack_helper (const char * cmd_line, uint8_t * kpage, uint8_t 
   //##Push &null
   //##Should you check for NULL returns?
 
-  addr = push2(kpage, &ofs, &null, 4);
+  addr = push(kpage, &ofs, &null, 4);
   if(addr == NULL){
     return false;
   }
