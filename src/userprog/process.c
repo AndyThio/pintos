@@ -73,8 +73,9 @@ process_execute (const char *file_name)
         */
 
       }
-      else
+      else{
           tid = TID_ERROR;
+}
   }
   palloc_free_page(exec.file_name);
   palloc_free_page(fn_copy);
@@ -96,7 +97,9 @@ start_process (void *execarg)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+
   exec->success = load (file_name, &if_.eip, &if_.esp);
+
 
   sema_up(&exec->loadingFile);
 
@@ -306,7 +309,6 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL)
     goto done;
-
   process_activate ();
 
   /* Open executable file. */
@@ -338,12 +340,16 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
     {
       struct Elf32_Phdr phdr;
 
-      if (file_ofs < 0 || file_ofs > file_length (file))
+      if (file_ofs < 0 || file_ofs > file_length (file)){
+        printf("load failed at: file_ofs < 0");
         goto done;
+      }
       file_seek (file, file_ofs);
 
-      if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
+      if (file_read (file, &phdr, sizeof phdr) != sizeof phdr){
+        printf("load failed at: file_read");
         goto done;
+        }
       file_ofs += sizeof phdr;
       switch (phdr.p_type)
         {
@@ -382,11 +388,15 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
               if (!load_segment (file, file_page, (void *) mem_page,
-                                 read_bytes, zero_bytes, writable))
+                                 read_bytes, zero_bytes, writable)){
+                  printf("load failed at: load_segment");
                 goto done;
+              }
             }
-          else
+          else{
+              printf("load failed at: else");
             goto done;
+          }
           break;
         }
     }
@@ -429,6 +439,25 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
   /* p_offset must point within FILE. */
   if (phdr->p_offset > (Elf32_Off) file_length (file))
     return false;
+
+  /* p_memsz must be at least as big as p_filesz. */
+  if (phdr->p_memsz < phdr->p_filesz)
+    return false;
+
+  /* The segment must not be empty. */
+  if (phdr->p_memsz == 0)
+    return false;
+
+  /* The virtual memory region must both start and end within the
+     user address space range. */
+  if (!is_user_vaddr ((void *) phdr->p_vaddr))
+    return false;
+  if (!is_user_vaddr ((void *) (phdr->p_vaddr + phdr->p_memsz)))
+    return false;
+
+  /* The region cannot "wrap around" across the kernel virtual
+     address space. */
+  if (phdr->p_vaddr + phdr->p_memsz < phdr->p_vaddr)
     return false;
 
   /* Disallow mapping page 0.
@@ -543,12 +572,6 @@ install_page (void *upage, void *kpage, bool writable)
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
 
-//## This goes in process.c
-//## You should really understand how this code works so you know how to use it!
-//## Read through it carefully.
-//## push (kpage, &ofs, &x, sizeof x), kpage is created in setup_stack....
-//## x is all the values argv, argc, and null (you need a null on the stack!)
-//## Be careful of hte order of argv! Check the stack example
 
 /* Pushes the SIZE bytes in BUF onto the stack in KPAGE, whose
    page-relative stack pointer is *OFS, and then adjusts *OFS
@@ -573,11 +596,27 @@ push (uint8_t *kpage, size_t *offset, const void *buf, size_t size)
   return kpage + *offset + (padsize - size);
 }
 
+static void *
+push2 (uint8_t *kpage, size_t *offset, const void *buf, size_t size)
+{
+  size_t padsize = ROUND_UP (size, sizeof (uint32_t));
+
+  if (*offset < padsize){
+    return NULL;
+  }
+
+  *offset -= padsize;
+
+  memcpy (kpage + *offset + (padsize - size), buf, size);
+
+  return kpage + *offset + (padsize - size);
+}
+
 static bool setup_stack_helper (const char * cmd_line, uint8_t * kpage, uint8_t * upage, void ** esp)
 {
   size_t ofs = PGSIZE; //##Used in push!
   char * const null = NULL; //##Used for pushing nulls
-  char *ptr; //##strtok_r usage
+  char *ptr = NULL; //##strtok_r usage
   //##Probably need some other variables here as well...
   char *argvlist[MAX_ARGV];
   int argv_count = 0;
@@ -592,7 +631,7 @@ static bool setup_stack_helper (const char * cmd_line, uint8_t * kpage, uint8_t 
   while(tok_value != NULL){
     argvlist[argv_count] = tok_value;
     ++argv_count;
-    tok_value = strtok_r(cmdl_cpy, " ", &ptr);
+    tok_value = strtok_r(NULL, " ", &ptr);
   }
 
   int i = 0;
@@ -615,7 +654,7 @@ static bool setup_stack_helper (const char * cmd_line, uint8_t * kpage, uint8_t 
   //##See the stack example on documentation for what "reversed" means
   int j = 0;
   for( j = argv_count-1; j >= 0; --j){
-    addr = push(kpage, &ofs, argvlist[j], strlen(argvlist[j])+1);
+    addr = push(kpage, &ofs, &addrlist[j], 4);
     if(addr == NULL){
       return false;
     }
@@ -632,7 +671,7 @@ static bool setup_stack_helper (const char * cmd_line, uint8_t * kpage, uint8_t 
   //##Push &null
   //##Should you check for NULL returns?
 
-  addr = push(kpage, &ofs, &null, strlen(argvlist[i])+1);
+  addr = push2(kpage, &ofs, &null, 4);
   if(addr == NULL){
     return false;
   }
