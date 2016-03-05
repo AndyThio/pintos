@@ -223,7 +223,13 @@ exit (int status){
 pid_t
 exec (const char* cmd_line){
     if(verify_user(cmd_line)){
-        return process_execute(cmd_line);
+        int tid = process_execute(cmd_line);
+        if(tid != TID_ERROR){
+            return tid;
+        }
+        else{
+            return -1;
+        }
     }
     exit(-1);
     return -1;
@@ -283,8 +289,8 @@ open(const char *file){
         }
 
         newfile->fd = max_fd+1;
-    }
 
+    }
     list_push_back(&thread_current()->files_list, &newfile->filelem);
 
     return newfile->fd;
