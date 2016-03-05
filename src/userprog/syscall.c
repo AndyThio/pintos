@@ -26,14 +26,17 @@ static bool verify_user (const void *);
 //syscall functions
 void halt(void);
 void exit (int );
-int write(int , const void *, unsigned );
-int read(int , void *, unsigned );
 pid_t exec(const char* );
 int wait(pid_t );
 bool create (const char *, unsigned );
 bool remove (const char *);
 int open (const char *);
 int filesize(int);
+int write(int , const void *, unsigned );
+int read(int , void *, unsigned );
+void seek(int, unsigned);
+unsigned tell(int );
+void close(int fd);
 
 //helper functions
 struct file* get_file(int );
@@ -148,6 +151,7 @@ syscall_handler (struct intr_frame *f)
                 numOfArgs = 3;
                 copy_in (args, (uint32_t*) f->esp + 1, sizeof *args * numOfArgs);
                 f -> eax = read(args[0], (void *)args[1],(unsigned) args[2]);
+                break;
             }
         // Write to a file
         case SYS_WRITE:
@@ -160,17 +164,26 @@ syscall_handler (struct intr_frame *f)
         //TODO: Change position in a file
         case SYS_SEEK:
             {
-
+                numOfArgs = 2;
+                copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
+                seek(args[0], (unsigned) args[1]);
+                break;
             }
         //TODO: Report current position in a file
         case SYS_TELL:
             {
-
+                numOfArgs = 1;
+                copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
+                f -> eax = tell(args[0]);
+                break;
             }
         //TODO: Close a file
         case SYS_CLOSE:
         {
-
+                numOfArgs = 1;
+                copy_in (args, (uint32_t *) f->esp + 1, sizeof *args * numOfArgs);
+                close(args[0]);
+                break;
         }
     }
 }
@@ -279,7 +292,11 @@ open(const char *file){
 
 int
 filesize(int fd){
-    return (int)file_length(get_file(fd)->fil);
+    struct file *temp = get_file(fd);
+    if(temp == NULL){
+        return -1;
+    }
+    return file_length(temp);
 }
 
 int
@@ -314,8 +331,8 @@ read(int fd, void *buffer, unsigned size){
         uint8_t* buf_temp = (uint8_t *) buffer;
         int i;
         for(i = 0; i < size; ++i){
-
-        input_getc(buffer, size);
+            buf_temp[i] = input_getc();
+        }
         return size;
     }
 
@@ -329,6 +346,41 @@ read(int fd, void *buffer, unsigned size){
     lock_release(&filelock);
     return ret;
 }
+
+void
+seek(int fd, unsigned position){
+    struct file *temp = get_file(fd);
+    if(temp == NULL){
+        return;
+    }
+    file_seek(temp, (off_t) position);
+}
+
+unsigned
+tell(int fd){
+    struct file *temp = get_file(fd);
+    if(temp == NULL){
+        return -1;
+    }
+    return file_tell(temp);
+}
+
+void
+close(int fd){
+    struct thread *curr = thread_current();
+    struct list_elem *e;
+    for(e = list_begin(&curr->files_list);
+            e != list_end(&curr->files_list); e = list_next(e)){
+        struct files *temp = list_entry(e, struct files, filelem);
+        if(temp->fd == fd){
+            list_remove(&temp->filelem);
+            file_close(temp->fil);
+            palloc_free_page(temp);
+            break;
+        }
+    }
+}
+
 
 /* Copies SIZE bytes from user address USRC to kernel address
    DST.
