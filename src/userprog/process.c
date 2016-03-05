@@ -132,6 +132,9 @@ process_wait (tid_t child_tid)
 {
   struct list_elem *e;
   struct child_ *ctemp = NULL;
+  if(list_empty(&thread_current()->children)){
+      return -1;
+  }
   for(e = list_begin(&thread_current()-> children); e!=list_end(&thread_current()->children);
         e = list_next(e)){
       ctemp = list_entry(e, struct child_, childelem);
