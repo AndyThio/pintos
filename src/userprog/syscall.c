@@ -393,7 +393,7 @@ copy_in (void *dst_, const void *usrc_, size_t size)
 
   for (; size > 0; size--, dst++, usrc++)
     if (usrc >= (uint8_t *) PHYS_BASE || !get_user (dst, usrc))
-      thread_exit ();
+        exit(-1);
 }
 
 
