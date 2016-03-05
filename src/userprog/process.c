@@ -105,7 +105,6 @@ start_process (void *execarg)
 
   /* If load failed, quit. */
   if (!exec->success){
-      printf("this process has failed to load");
     thread_exit ();
   }
 
@@ -340,13 +339,11 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
       struct Elf32_Phdr phdr;
 
       if (file_ofs < 0 || file_ofs > file_length (file)){
-        printf("load failed at: file_ofs < 0");
         goto done;
       }
       file_seek (file, file_ofs);
 
       if (file_read (file, &phdr, sizeof phdr) != sizeof phdr){
-        printf("load failed at: file_read");
         goto done;
         }
       file_ofs += sizeof phdr;
@@ -388,12 +385,10 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
                 }
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable)){
-                  printf("load failed at: load_segment");
                 goto done;
               }
             }
           else{
-              printf("load failed at: else");
             goto done;
           }
           break;
@@ -402,7 +397,6 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
 
   /* Set up stack. */
   if (!setup_stack (esp, cmd_line)){
-      printf("\nThe stack has failed to load\n");
     goto done;
   }
 
